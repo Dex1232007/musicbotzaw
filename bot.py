@@ -316,9 +316,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         audio_info = await get_audio_info(param)
         if not audio_info.get('ok'):
             await query.edit_message_text(
-                "❌ Failed to process this video\n\n"
-                f"Error: {audio_info.get('error', 'Unknown error')}\n\n"
-                "Try again or contact support."
+                "❌ Failed to process this Audio\n\n"
+                f"Error: Try again or contact support."
             )
             return
         
