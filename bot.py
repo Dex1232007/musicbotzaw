@@ -2,6 +2,7 @@ import os
 import json
 import time
 import logging
+import requests
 import re
 from typing import Dict, List, Optional, Union
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
