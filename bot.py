@@ -4,6 +4,7 @@ import time
 import logging
 import requests
 import re
+import asyncio
 from typing import Dict, List, Optional, Union
 from aiohttp import web
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -17,7 +18,10 @@ from telegram.ext import (
 )
 
 # Configuration
-BOT_TOKEN = os.getenv('BOT_TOKEN', '7139353619:AAFv1JuHS6rDZ7V52G9C_oiJXHztJtxjBo0')
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is required")
+
 PORT = int(os.getenv('PORT', 8000))
 DATA_FILE = 'telegram_users.json'
 COOLDOWN_FILE = 'cooldown.json'
@@ -296,14 +300,8 @@ async def webhook_handler(request):
 async def health_check(request):
     return web.Response(text="OK")
 
-async def web_server():
-    app = web.Application()
-    app.router.add_post('/webhook', webhook_handler)
-    app.router.add_get('/health', health_check)
-    return app
-
-async def main():
-    global application
+async def setup_application():
+    """Setup Telegram application with handlers"""
     application = (
         Application.builder()
         .token(BOT_TOKEN)
@@ -316,17 +314,42 @@ async def main():
     application.add_handler(CallbackQueryHandler(handle_callback))
     application.add_error_handler(error_handler)
 
+    return application
+
+async def main():
+    global application
+    application = await setup_application()
+
     # Start web server
-    runner = web.AppRunner(await web_server())
+    app = web.Application()
+    app.router.add_post('/webhook', webhook_handler)
+    app.router.add_get('/health', health_check)
+    
+    runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
     logger.info(f"Server started on port {PORT}")
     
-    # Run application
-    await application.run_polling()
+    # Run application with polling
+    await application.initialize()
+    await application.start()
+    await application.updater.start_polling()
+
+    # Keep running
+    while True:
+        await asyncio.sleep(3600)  # Sleep for 1 hour
+
+    # Proper shutdown (though we may never reach here)
+    await application.updater.stop()
+    await application.stop()
+    await application.shutdown()
 
 if __name__ == '__main__':
-    import asyncio
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Fatal error: {e}")
