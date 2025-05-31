@@ -122,6 +122,40 @@ def set_cooldown(user_id: Union[int, str]) -> None:
     except Exception as e:
         logger.error(f"Cooldown Set Error: {str(e)}")
 
+async def send_audio(chat_id: Union[int, str], audio_url: str, context: ContextTypes.DEFAULT_TYPE) -> None:
+    try:
+        keyboard = [
+            [InlineKeyboardButton("💐 Join Our Channel", url="https://t.me/Yagami_xlight")]
+        ]
+        
+        # Download the audio file
+        response = requests.get(audio_url, stream=True, timeout=30)
+        response.raise_for_status()
+        
+        # Save temporarily
+        with open('temp_audio.mp3', 'wb') as f:
+            for chunk in response.iter_content(1024):
+                f.write(chunk)
+        
+        # Send audio with caption
+        with open('temp_audio.mp3', 'rb') as audio_file:
+            await context.bot.send_audio(
+                chat_id=chat_id,
+                audio=audio_file,
+                caption="Made by @ItachiXCoder",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        
+        # Clean up
+        os.remove('temp_audio.mp3')
+        
+    except Exception as e:
+        logger.error(f"Audio Sending Error: {str(e)}")
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"Failed to send audio. You can download it directly: {audio_url}"
+        )
+
 # Bot Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not await is_member_of_channels(update.effective_user.id, context):
@@ -170,6 +204,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def handle_youtube_url(update: Update, context: ContextTypes.DEFAULT_TYPE, url: str) -> None:
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     
     if remaining := check_cooldown(user_id):
         await update.message.reply_text(f"⏳ Please wait {remaining} seconds before your next request")
@@ -187,7 +222,17 @@ async def handle_youtube_url(update: Update, context: ContextTypes.DEFAULT_TYPE,
     
     await message.edit_text(
         f"🎵 <b>{audio_info['title']}</b>\n\n"
-        f"🔗 <a href=\"{audio_info['download_url']}\">Download Audio</a>\n\n"
+        f"⏳ Downloading audio...",
+        parse_mode='HTML'
+    )
+    
+    # Send the audio file
+    await send_audio(chat_id, audio_info['download_url'], context)
+    
+    # Edit the message with final info
+    await message.edit_text(
+        f"🎵 <b>{audio_info['title']}</b>\n\n"
+        f"🔗 <a href=\"{audio_info['download_url']}\">Download Link</a>\n\n"
         "<i>Powered by @ItachiXCoder</i>",
         parse_mode='HTML',
         reply_markup=InlineKeyboardMarkup([
@@ -197,6 +242,7 @@ async def handle_youtube_url(update: Update, context: ContextTypes.DEFAULT_TYPE,
 
 async def handle_search(update: Update, context: ContextTypes.DEFAULT_TYPE, query: str) -> None:
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     
     if remaining := check_cooldown(user_id):
         await update.message.reply_text(f"⏳ Please wait {remaining} seconds before your next request")
@@ -231,6 +277,8 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await query.answer()
     
     user_id = query.from_user.id
+    chat_id = query.message.chat_id
+    message_id = query.message.message_id
     data = query.data
     
     if not await is_member_of_channels(user_id, context):
@@ -276,7 +324,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         
         await query.edit_message_text(
             f"🎵 <b>{audio_info['title']}</b>\n\n"
-            f"🔗 <a href=\"{audio_info['download_url']}\">Download Audio</a>\n\n"
+            f"⏳ Downloading audio...",
+            parse_mode='HTML'
+        )
+        
+        # Send the audio file
+        await send_audio(chat_id, audio_info['download_url'], context)
+        
+        # Edit the message with final info
+        await query.edit_message_text(
+            f"🎵 <b>{audio_info['title']}</b>\n\n"
+            f"🔗 <a href=\"{audio_info['download_url']}\">Download Link</a>\n\n"
             "<i>Powered by @ItachiXCoder</i>",
             parse_mode='HTML',
             reply_markup=InlineKeyboardMarkup([
