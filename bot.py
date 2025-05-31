@@ -60,7 +60,7 @@ def validate_youtube_url(url: str) -> bool:
 async def get_audio_info(youtube_url: str) -> Dict:
     api_url = f"https://zawandkhin.serv00.net/api/yt.php?url={requests.utils.quote(youtube_url)}"
     try:
-        response = requests.get(api_url, timeout=15)
+        response = requests.get(api_url, timeout=120)
         response.raise_for_status()
         data = response.json()
         
